@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mex">
+<meta name="theme-color" content="#0e0e11">
+<title>Mex</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--bg:#0e0e11;--card:#18181d;--card2:#212128;--line:#2a2a33;--tx:#f2f2f5;--mut:#8b8b98;--ac:#f59e0b;--ac2:#fbbf24;--red:#ef4444;--grn:#22c55e}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Segoe UI,Roboto,sans-serif;overscroll-behavior:none}
+button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font-family:inherit}
+#app,#login{display:none;height:100%;flex-direction:column}
+#login{align-items:center;justify-content:center;padding:24px;gap:12px}
+#login h1{margin:0;font-size:42px;letter-spacing:-1px;color:var(--ac)}
+#login p{margin:0 0 12px;color:var(--mut)}
+#login input{width:100%;max-width:340px;padding:14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:16px}
+.btn{width:100%;max-width:340px;padding:14px;border-radius:12px;background:var(--ac);color:#111;font-weight:700;font-size:16px}
+.btn.sec{background:var(--card2);color:var(--tx);font-weight:500}
+#lerr{color:var(--red);font-size:14px;min-height:18px;text-align:center}
+header{padding:calc(env(safe-area-inset-top) + 10px) 16px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+header b{font-size:22px;color:var(--ac);letter-spacing:-.5px}
+header .r{display:flex;gap:6px}
+.ic{width:38px;height:38px;border-radius:50%;background:var(--card);font-size:17px}
+.ic.off{opacity:.4}
+main{flex:1;overflow:hidden;position:relative}
+.tab{display:none;position:absolute;inset:0;overflow-y:auto;padding:14px 16px 20px;-webkit-overflow-scrolling:touch}
+.tab.on{display:block}
+#t-chat.on{display:flex;flex-direction:column;padding:0}
+#msgs{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.m{max-width:86%;padding:10px 14px;border-radius:18px;line-height:1.35;font-size:16px;white-space:pre-wrap;word-wrap:break-word}
+.m.u{align-self:flex-end;background:var(--ac);color:#111;border-bottom-right-radius:5px}
+.m.a{align-self:flex-start;background:var(--card);border-bottom-left-radius:5px}
+.m.s{align-self:center;background:none;color:var(--mut);font-size:13px;text-align:center}
+.hint{margin:auto;text-align:center;color:var(--mut);line-height:1.6;padding:20px}
+.hint b{color:var(--tx)}
+#dock{padding:10px 14px calc(8px);border-top:1px solid var(--line);background:var(--bg)}
+#row{display:flex;gap:8px;align-items:center}
+#txt{flex:1;padding:12px 14px;border-radius:22px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:16px}
+#send{width:44px;height:44px;border-radius:50%;background:var(--card2);font-size:18px}
+#mic{width:64px;height:64px;border-radius:50%;background:var(--ac);color:#111;font-size:28px;box-shadow:0 0 0 0 rgba(245,158,11,.5);flex:none}
+#mic.rec{background:var(--red);color:#fff;animation:pulse 1.2s infinite}
+#mic.busy{background:var(--card2);color:var(--mut);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}100%{box-shadow:0 0 0 22px rgba(239,68,68,0)}}
+#status{text-align:center;font-size:13px;color:var(--mut);height:18px;margin-bottom:6px}
+nav{display:flex;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);background:var(--card)}
+nav button{flex:1;padding:10px 0 8px;font-size:12px;color:var(--mut);display:flex;flex-direction:column;align-items:center;gap:2px}
+nav button span{font-size:20px}
+nav button.on{color:var(--ac)}
+h2{margin:6px 0 10px;font-size:15px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.it{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px}
+.it .b{flex:1;min-width:0}
+.it .t{font-size:16px;word-wrap:break-word}
+.it .s{font-size:13px;color:var(--mut);margin-top:2px}
+.it.late .s{color:var(--red)}
+.ck{width:26px;height:26px;border-radius:50%;border:2px solid var(--mut);flex:none}
+.it .x{color:var(--mut);font-size:18px;padding:4px}
+.it.done .t{text-decoration:line-through;color:var(--mut)}
+.val{font-weight:700;white-space:nowrap}
+.val.in{color:var(--grn)}.val.out{color:var(--red)}
+.sum{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.sum div{background:var(--card);border-radius:14px;padding:12px 14px}
+.sum div.full{grid-column:1/3}
+.sum small{display:block;color:var(--mut);font-size:12px}
+.sum b{font-size:20px}
+.mth{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.mth button{width:40px;height:40px;border-radius:50%;background:var(--card);font-size:18px}
+.mth b{font-size:17px;text-transform:capitalize}
+.bar{margin-bottom:8px}
+.bar .l{display:flex;justify-content:space-between;font-size:14px;margin-bottom:3px}
+.bar .tr{height:8px;background:var(--card2);border-radius:4px;overflow:hidden}
+.bar .tr i{display:block;height:100%;background:var(--ac);border-radius:4px}
+.empty{color:var(--mut);text-align:center;padding:24px 0}
+#alarm{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 8px);background:var(--ac);color:#111;border-radius:16px;padding:14px 16px;font-weight:700;display:none;z-index:9;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <h1>Mex</h1>
+  <p>Seu assessor pessoal</p>
+  <input id="em" type="email" placeholder="E-mail" autocomplete="username">
+  <input id="pw" type="password" placeholder="Senha" autocomplete="current-password">
+  <button class="btn" id="bin">Entrar</button>
+  <button class="btn sec" id="bnew">Criar conta</button>
+  <div id="lerr"></div>
+</div>
+
+<div id="app">
+  <header>
+    <b>Mex</b>
+    <div class="r">
+      <button class="ic" id="bvoz" title="Resposta por voz">🔊</button>
+      <button class="ic" id="bout" title="Sair">⎋</button>
+    </div>
+  </header>
+  <main>
+    <section class="tab on" id="t-chat">
+      <div id="msgs"><div class="hint">Toque no microfone e fale.<br><br><b>"Agenda dentista sexta às 14h"</b><br><b>"Gastei 85 reais de combustível"</b><br><b>"Quanto gastei este mês?"</b></div></div>
+      <div id="dock">
+        <div id="status"></div>
+        <div id="row">
+          <input id="txt" placeholder="Ou digite aqui..." autocomplete="off">
+          <button id="send">➤</button>
+          <button id="mic">🎙</button>
+        </div>
+      </div>
+    </section>
+    <section class="tab" id="t-agenda"></section>
+    <section class="tab" id="t-fin"></section>
+  </main>
+  <nav>
+    <button class="on" data-t="chat"><span>🎙</span>Mex</button>
+    <button data-t="agenda"><span>📅</span>Agenda</button>
+    <button data-t="fin"><span>💰</span>Financeiro</button>
+  </nav>
+</div>
+<div id="alarm"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+// ====== CONFIG: cole aqui o firebaseConfig do seu projeto ======
+const firebaseConfig = {
+  apiKey: "COLE_AQUI",
+  authDomain: "COLE_AQUI",
+  projectId: "COLE_AQUI",
+  appId: "COLE_AQUI"
+};
+// ================================================================
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth(), db = firebase.firestore();
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2, '0');
+const brl = n => Number(n || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+const isoLocal = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const ymKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+
+let user = null, events = [], txs = [], unsubs = [], history = [];
+let monthRef = new Date(); monthRef.setDate(1);
+let voiceOn = localStorage.getItem('mexVoice') !== '0';
+let busy = false;
+
+// ---------- Login ----------
+const AUTH_ERR = {
+  'auth/invalid-credential':'E-mail ou senha incorretos.','auth/wrong-password':'Senha incorreta.',
+  'auth/user-not-found':'Conta não encontrada.','auth/email-already-in-use':'Este e-mail já tem conta. Use Entrar.',
+  'auth/weak-password':'Senha fraca (mínimo 6 caracteres).','auth/invalid-email':'E-mail inválido.'
+};
+const lerr = e => { $('lerr').textContent = AUTH_ERR[e.code] || e.message; };
+$('bin').onclick = () => auth.signInWithEmailAndPassword($('em').value.trim(), $('pw').value).catch(lerr);
+$('bnew').onclick = () => auth.createUserWithEmailAndPassword($('em').value.trim(), $('pw').value).catch(lerr);
+$('bout').onclick = () => { if (confirm('Sair do Mex?')) auth.signOut(); };
+
+auth.onAuthStateChanged(u => {
+  user = u;
+  unsubs.forEach(f => f()); unsubs = [];
+  if (!u) { $('app').style.display = 'none'; $('login').style.display = 'flex'; return; }
+  $('login').style.display = 'none'; $('app').style.display = 'flex';
+  const base = db.collection('users').doc(u.uid);
+  unsubs.push(base.collection('events').onSnapshot(s => { events = s.docs.map(d => ({id:d.id, ...d.data()})); renderAgenda(); }));
+  unsubs.push(base.collection('transactions').onSnapshot(s => { txs = s.docs.map(d => ({id:d.id, ...d.data()})); renderFin(); }));
+  if (new URLSearchParams(location.search).get('gravar') === '1') setTimeout(() => { if (!rec) toggleMic(); }, 700);
+});
+
+// ---------- Abas ----------
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.id === 't-' + b.dataset.t));
+});
+
+// ---------- Voz de resposta ----------
+function renderVoz() { $('bvoz').classList.toggle('off', !voiceOn); }
+$('bvoz').onclick = () => { voiceOn = !voiceOn; localStorage.setItem('mexVoice', voiceOn ? '1' : '0'); if (!voiceOn) speechSynthesis.cancel(); renderVoz(); };
+renderVoz();
+function speak(t) {
+  if (!voiceOn || !('speechSynthesis' in window) || !t) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(t); u.lang = 'pt-BR'; u.rate = 1.05;
+    const v = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('pt-BR'));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function unlockSpeech() { try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {} }
+
+// ---------- Chat ----------
+function addMsg(role, text) {
+  const box = $('msgs'); const h = box.querySelector('.hint'); if (h) h.remove();
+  const d = document.createElement('div'); d.className = 'm ' + role; d.textContent = text;
+  box.appendChild(d); box.scrollTop = box.scrollHeight; return d;
+}
+const setStatus = t => { $('status').textContent = t || ''; };
+
+// ---------- Gravação ----------
+let rec = null, chunks = [], stream = null, recTimer = null, recStart = 0;
+async function toggleMic() {
+  if (busy) return;
+  if (rec) { stopRec(); return; }
+  unlockSpeech();
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio:true});
+  } catch (e) { setStatus('Permita o microfone nos ajustes do Safari/app.'); return; }
+  const mime = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+  rec = new MediaRecorder(stream, mime ? {mimeType:mime} : {});
+  chunks = [];
+  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+  rec.onstop = async () => {
+    clearInterval(recTimer);
+    stream.getTracks().forEach(t => t.stop());
+    const type = rec.mimeType || mime || 'audio/mp4';
+    const blob = new Blob(chunks, {type});
+    rec = null; $('mic').classList.remove('rec');
+    if (blob.size < 1500) { setStatus('Gravação muito curta.'); return; }
+    const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(blob); });
+    ask({audio:b64, mime:type});
+  };
+  rec.start(); recStart = Date.now();
+  $('mic').classList.add('rec'); $('mic').textContent = '⏹';
+  recTimer = setInterval(() => {
+    const s = Math.floor((Date.now() - recStart) / 1000);
+    setStatus('Ouvindo... ' + s + 's (toque para enviar)');
+    if (s >= 75) stopRec();
+  }, 300);
+}
+function stopRec() { if (rec && rec.state !== 'inactive') rec.stop(); $('mic').textContent = '🎙'; }
+$('mic').onclick = toggleMic;
+$('send').onclick = sendText;
+$('txt').addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
+function sendText() { const t = $('txt').value.trim(); if (!t || busy) return; $('txt').value = ''; ask({text:t}); }
+
+// ---------- Contexto para a IA ----------
+function summarize(list) {
+  let rc = 0, ds = 0; const cat = {};
+  list.forEach(t => { if (t.kind === 'income') rc += t.amount; else { ds += t.amount; cat[t.category] = (cat[t.category] || 0) + t.amount; } });
+  return {receitas:+rc.toFixed(2), despesas:+ds.toFixed(2), saldo:+(rc - ds).toFixed(2), despesas_por_categoria:cat};
+}
+function buildContext() {
+  const now = new Date();
+  const pend = events.filter(e => !e.done).sort((a, b) => a.when.localeCompare(b.when)).slice(0, 40)
+    .map(e => ({id:e.id, titulo:e.title, quando:e.when, notas:e.notes || ''}));
+  const meses = {};
+  for (let i = 0; i < 3; i++) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); const k = ymKey(d); meses[k] = summarize(txs.filter(t => (t.date || '').startsWith(k))); }
+  const recentes = [...txs].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 15)
+    .map(t => ({id:t.id, tipo:t.kind, valor:t.amount, categoria:t.category, descricao:t.description, data:t.date}));
+  return {
+    agora: now.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'2-digit', year:'numeric'}) + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()),
+    agora_iso: isoLocal(now),
+    compromissos_pendentes: pend,
+    resumo_por_mes: meses,
+    ultimas_transacoes: recentes
+  };
+}
+
+// ---------- Chamada ao Mex ----------
+async function ask(input) {
+  busy = true; $('mic').classList.add('busy');
+  setStatus(input.audio ? 'Entendendo...' : 'Pensando...');
+  if (input.text) addMsg('u', input.text);
+  try {
+    const token = await user.getIdToken();
+    const r = await fetch('/api/mex', {
+      method:'POST',
+      headers:{'Content-Type':'application/json', Authorization:'Bearer ' + token},
+      body: JSON.stringify({...input, history, context: buildContext()})
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Erro ' + r.status);
+    const said = input.text || d.transcript || d.text || '';
+    if (input.audio) addMsg('u', said || '(áudio)');
+    await applyActions(d.actions);
+    addMsg('a', d.reply);
+    history.push({role:'user', content:said}, {role:'assistant', content:d.reply});
+    history = history.slice(-8);
+    speak(d.reply);
+    setStatus('');
+  } catch (e) {
+    addMsg('s', 'Erro: ' + e.message); setStatus('');
+  }
+  busy = false; $('mic').classList.remove('busy');
+}
+
+async function applyActions(list) {
+  const base = db.collection('users').doc(user.uid);
+  for (const a of (list || [])) {
+    try {
+      if (a.type === 'add_event' && a.title && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(a.when || '')) {
+        await base.collection('events').add({title:String(a.title), when:a.when, notes:String(a.notes || ''), done:false, notified:new Date(a.when) <= new Date(), createdAt:Date.now()});
+      } else if (a.type === 'complete_event' && a.id) {
+        await base.collection('events').doc(a.id).update({done:true});
+      } else if (a.type === 'delete_event' && a.id) {
+        await base.collection('events').doc(a.id).delete();
+      } else if (a.type === 'add_transaction' && Number(a.amount) > 0 && (a.kind === 'expense' || a.kind === 'income')) {
+        const date = /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : isoLocal(new Date()).slice(0, 10);
+        await base.collection('transactions').add({kind:a.kind, amount:+Number(a.amount).toFixed(2), category:String(a.category || 'Outros'), description:String(a.description || ''), date, createdAt:Date.now()});
+      } else if (a.type === 'delete_transaction' && a.id) {
+        await base.collection('transactions').doc(a.id).delete();
+      }
+    } catch (e) { console.error('ação falhou', a, e); }
+  }
+}
+
+// ---------- Agenda ----------
+function fmtWhen(w) {
+  const d = new Date(w), t = new Date(), tm = new Date(); tm.setDate(t.getDate() + 1);
+  const hh = pad(d.getHours()) + ':' + pad(d.getMinutes());
+  if (d.toDateString() === t.toDateString()) return 'Hoje ' + hh;
+  if (d.toDateString() === tm.toDateString()) return 'Amanhã ' + hh;
+  return d.toLocaleDateString('pt-BR', {weekday:'short', day:'2-digit', month:'2-digit'}) + ' ' + hh;
+}
+function evHtml(e, late) {
+  return `<div class="it ${late ? 'late' : ''} ${e.done ? 'done' : ''}">
+    <button class="ck" onclick="toggleEv('${e.id}',${!e.done})">${e.done ? '✓' : ''}</button>
+    <div class="b"><div class="t">${esc(e.title)}</div><div class="s">${fmtWhen(e.when)}${e.notes ? ' · ' + esc(e.notes) : ''}</div></div>
+    <button class="x" onclick="delEv('${e.id}')">✕</button></div>`;
+}
+function renderAgenda() {
+  const now = new Date();
+  const pend = events.filter(e => !e.done).sort((a, b) => a.when.localeCompare(b.when));
+  const late = pend.filter(e => new Date(e.when) < now), next = pend.filter(e => new Date(e.when) >= now);
+  const done = events.filter(e => e.done).sort((a, b) => b.when.localeCompare(a.when)).slice(0, 10);
+  let h = '';
+  if (late.length) h += '<h2>Atrasados</h2>' + late.map(e => evHtml(e, true)).join('');
+  h += '<h2>Próximos</h2>' + (next.length ? next.map(e => evHtml(e)).join('') : '<div class="empty">Nada agendado. Fale com o Mex.</div>');
+  if (done.length) h += '<h2>Concluídos</h2>' + done.map(e => evHtml(e)).join('');
+  $('t-agenda').innerHTML = h;
+}
+window.toggleEv = (id, v) => db.collection('users').doc(user.uid).collection('events').doc(id).update({done:v});
+window.delEv = id => { if (confirm('Apagar compromisso?')) db.collection('users').doc(user.uid).collection('events').doc(id).delete(); };
+
+// ---------- Alarmes (app aberto) ----------
+function showAlarm(t) {
+  const a = $('alarm'); a.textContent = '⏰ ' + t; a.style.display = 'block';
+  setTimeout(() => { a.style.display = 'none'; }, 12000); a.onclick = () => { a.style.display = 'none'; };
+  speak('Lembrete: ' + t);
+  try { if (window.Notification && Notification.permission === 'granted') new Notification('Mex', {body:t}); } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+}
+setInterval(() => {
+  if (!user) return;
+  const now = new Date();
+  events.filter(e => !e.done && !e.notified && new Date(e.when) <= now).forEach(e => {
+    db.collection('users').doc(user.uid).collection('events').doc(e.id).update({notified:true}).catch(() => {});
+    e.notified = true; showAlarm(e.title);
+  });
+}, 20000);
+document.addEventListener('click', () => { try { if (window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) {} }, {once:true});
+
+// ---------- Financeiro ----------
+function renderFin() {
+  const k = ymKey(monthRef);
+  const list = txs.filter(t => (t.date || '').startsWith(k)).sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt));
+  const s = summarize(list);
+  const label = monthRef.toLocaleDateString('pt-BR', {month:'long', year:'numeric'});
+  const cats = Object.entries(s.despesas_por_categoria).sort((a, b) => b[1] - a[1]);
+  const max = cats.length ? cats[0][1] : 1;
+  let h = `<div class="mth"><button onclick="chMonth(-1)">‹</button><b>${label}</b><button onclick="chMonth(1)">›</button></div>
+  <div class="sum"><div><small>Receitas</small><b style="color:var(--grn)">${brl(s.receitas)}</b></div>
+  <div><small>Despesas</small><b style="color:var(--red)">${brl(s.despesas)}</b></div>
+  <div class="full"><small>Saldo do mês</small><b>${brl(s.saldo)}</b></div></div>`;
+  if (cats.length) h += '<h2>Despesas por categoria</h2>' + cats.map(([c, v]) =>
+    `<div class="bar"><div class="l"><span>${esc(c)}</span><span>${brl(v)}</span></div><div class="tr"><i style="width:${Math.max(4, v / max * 100)}%"></i></div></div>`).join('');
+  h += '<h2>Lançamentos</h2>' + (list.length ? list.map(t => `<div class="it"><div class="b"><div class="t">${esc(t.description || t.category)}</div>
+    <div class="s">${esc(t.category)} · ${t.date.split('-').reverse().slice(0, 2).join('/')}</div></div>
+    <div class="val ${t.kind === 'income' ? 'in' : 'out'}">${t.kind === 'income' ? '+' : '-'}${brl(t.amount)}</div>
+    <button class="x" onclick="delTx('${t.id}')">✕</button></div>`).join('') : '<div class="empty">Nenhum lançamento neste mês.</div>');
+  $('t-fin').innerHTML = h;
+}
+window.chMonth = n => { monthRef = new Date(monthRef.getFullYear(), monthRef.getMonth() + n, 1); renderFin(); };
+window.delTx = id => { if (confirm('Apagar lançamento?')) db.collection('users').doc(user.uid).collection('transactions').doc(id).delete(); };
+</script>
+</body>
+</html>
