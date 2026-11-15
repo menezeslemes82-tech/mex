@@ -203,38 +203,31 @@ function addMsg(role, text) {
 }
 const setStatus = t => { $('status').textContent = t || ''; };
 
-// ---------- Gravação ----------
-let rec = null, chunks = [], stream = null, recTimer = null, recStart = 0;
-async function toggleMic() {
+// ---------- Ditado (microfone do navegador, sem OpenAI) ----------
+let rec = null;
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function toggleMic() {
   if (busy) return;
-  if (rec) { stopRec(); return; }
+  if (rec) { try { rec.stop(); } catch (e) {} return; }
+  if (!SR) { setStatus('Este navegador não tem ditado. Use o microfone do teclado.'); $('txt').focus(); return; }
   unlockSpeech();
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({audio:true});
-  } catch (e) { setStatus('Permita o microfone nos ajustes do Safari/app.'); return; }
-  const mime = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
-  rec = new MediaRecorder(stream, mime ? {mimeType:mime} : {});
-  chunks = [];
-  rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
-  rec.onstop = async () => {
-    clearInterval(recTimer);
-    stream.getTracks().forEach(t => t.stop());
-    const type = rec.mimeType || mime || 'audio/mp4';
-    const blob = new Blob(chunks, {type});
-    rec = null; $('mic').classList.remove('rec');
-    if (blob.size < 1500) { setStatus('Gravação muito curta.'); return; }
-    const b64 = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(blob); });
-    ask({audio:b64, mime:type});
+  const r = new SR();
+  rec = r; r.lang = 'pt-BR'; r.interimResults = true; r.continuous = false;
+  let err = '';
+  r.onresult = e => { let t = ''; for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript; $('txt').value = t; };
+  r.onerror = e => { err = e.error || ''; };
+  r.onend = () => {
+    rec = null; $('mic').classList.remove('rec'); $('mic').textContent = '🎙'; setStatus('');
+    if (err && err !== 'no-speech' && err !== 'aborted') {
+      setStatus(err === 'not-allowed' || err === 'service-not-allowed' ? 'Permita microfone e ditado nos ajustes, ou use o microfone do teclado.' : 'Erro no ditado: ' + err);
+      $('txt').focus(); return;
+    }
+    const t = $('txt').value.trim();
+    if (t) { $('txt').value = ''; ask({text:t}); } else setStatus('Não ouvi nada. Toque e fale.');
   };
-  rec.start(); recStart = Date.now();
-  $('mic').classList.add('rec'); $('mic').textContent = '⏹';
-  recTimer = setInterval(() => {
-    const s = Math.floor((Date.now() - recStart) / 1000);
-    setStatus('Ouvindo... ' + s + 's (toque para enviar)');
-    if (s >= 75) stopRec();
-  }, 300);
+  try { r.start(); $('mic').classList.add('rec'); $('mic').textContent = '⏹'; setStatus('Ouvindo... fale (envia sozinho ao parar)'); }
+  catch (e) { rec = null; setStatus('Não consegui iniciar o microfone.'); }
 }
-function stopRec() { if (rec && rec.state !== 'inactive') rec.stop(); $('mic').textContent = '🎙'; }
 $('mic').onclick = toggleMic;
 $('send').onclick = sendText;
 $('txt').addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
