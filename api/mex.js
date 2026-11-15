@@ -5,10 +5,10 @@ const ALLOWED = (process.env.ALLOWED_EMAILS || 'agrosafra7@gmail.com')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
 async function verifyToken(idToken) {
-  if (!process.env.FIREBASE_API_KEY) return { error: 'Variável FIREBASE_API_KEY não existe na Vercel (ou falta redeploy).' };
+  const FB_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyAdVNgwnZN0difI8IBsIgUo0OHWZHHse_c';
   if (!idToken) return { error: 'Login não enviado ao servidor.' };
   const r = await fetch(
-    'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + process.env.FIREBASE_API_KEY,
+    'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + FB_KEY,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) }
   );
   if (!r.ok) {
