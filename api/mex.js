@@ -5,15 +5,19 @@ const ALLOWED = (process.env.ALLOWED_EMAILS || 'agrosafra7@gmail.com')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
 async function verifyToken(idToken) {
-  if (!idToken) return null;
+  if (!process.env.FIREBASE_API_KEY) return { error: 'Variável FIREBASE_API_KEY não existe na Vercel (ou falta redeploy).' };
+  if (!idToken) return { error: 'Login não enviado ao servidor.' };
   const r = await fetch(
     'https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=' + process.env.FIREBASE_API_KEY,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken }) }
   );
-  if (!r.ok) return null;
+  if (!r.ok) {
+    const t = (await r.text()).slice(0, 200);
+    return { error: 'Firebase recusou (' + r.status + '): ' + t };
+  }
   const d = await r.json();
   const u = d.users && d.users[0];
-  return u ? { uid: u.localId, email: (u.email || '').toLowerCase() } : null;
+  return u ? { uid: u.localId, email: (u.email || '').toLowerCase() } : { error: 'Usuário não encontrado no token.' };
 }
 
 async function transcribe(audioB64, mime) {
@@ -69,7 +73,8 @@ module.exports = async (req, res) => {
   try {
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
     const user = await verifyToken(token);
-    if (!user || !ALLOWED.includes(user.email)) return res.status(401).json({ error: 'Não autorizado' });
+    if (user.error) return res.status(401).json({ error: user.error });
+    if (!ALLOWED.includes(user.email)) return res.status(401).json({ error: 'E-mail não permitido: ' + user.email + ' (defina ALLOWED_EMAILS na Vercel)' });
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
     let text = (body.text || '').trim();
