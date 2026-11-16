@@ -1,6 +1,9 @@
 // api/mex.js — cérebro do Mex (Vercel serverless, Node 18+)
 // Variáveis de ambiente: ANTHROPIC_API_KEY, OPENAI_API_KEY, FIREBASE_API_KEY, ALLOWED_EMAILS (opcional)
 
+// Extrai só a chave sk-ant-... mesmo que a variável tenha texto extra colado junto
+const ANTHROPIC_KEY = ((process.env.ANTHROPIC_API_KEY || '').match(/sk-ant-[A-Za-z0-9_\-]+/) || [''])[0];
+
 const ALLOWED = (process.env.ALLOWED_EMAILS || 'agrosafra7@gmail.com')
   .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
 
@@ -102,7 +105,7 @@ module.exports = async (req, res) => {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'x-api-key': ANTHROPIC_KEY,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json'
       },
