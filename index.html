@@ -113,7 +113,8 @@ h2{margin:6px 0 10px;font-size:15px;color:var(--mut);font-weight:600;text-transf
   <header>
     <div><b>Mex</b> <span id="net" style="display:none;font-size:12px;color:var(--ac);margin-left:6px">📴 offline</span></div>
     <div class="r">
-      <button class="ic" id="bnew" title="Lançar manualmente">＋</button>
+      <button class="ic" id="binst" title="Instalar o app">📲</button>
+      <button class="ic" id="bplus" title="Lançar manualmente">＋</button>
       <button class="ic" id="bset" title="Ajustes">⚙</button>
       <button class="ic" id="bvoz" title="Resposta por voz">🔊</button>
       <button class="ic" id="bout" title="Sair">⎋</button>
@@ -146,8 +147,13 @@ h2{margin:6px 0 10px;font-size:15px;color:var(--mut);font-weight:600;text-transf
 </div>
 <div class="ov" id="ovset">
   <button class="sm" onclick="closeSet()">← Voltar</button>
-  <h3>🔔 Notificações no iPhone</h3>
-  <p>Instale o Mex na Tela de Início (Compartilhar → Adicionar à Tela de Início), abra por lá e toque em ativar.</p>
+  <div id="instbox">
+    <h3>📲 Instalar o app</h3>
+    <p>Instalado, o Mex abre como um aplicativo, em tela cheia, funciona sem internet e recebe notificações.</p>
+    <button class="sm pri" id="binst2">Instalar o Mex</button>
+  </div>
+  <h3>🔔 Notificações</h3>
+  <p>Instale o Mex primeiro (botão acima), abra o app instalado e toque em ativar. Faça isso em cada aparelho que quiser receber avisos.</p>
   <button class="sm pri" id="bpush">Ativar notificações</button><button class="sm" id="btest">Enviar teste</button>
   <p id="pushst"></p>
   <h3>📅 Agenda no calendário do iPhone / Google</h3>
@@ -174,6 +180,13 @@ h2{margin:6px 0 10px;font-size:15px;color:var(--mut);font-weight:600;text-transf
   <input class="url" id="ndt" type="datetime-local">
   <textarea class="url" id="nno" rows="4" placeholder="Texto / observações"></textarea>
   <button class="sm pri" id="nsave">Salvar</button> <span id="nmsg" style="font-size:14px;color:var(--mut)"></span>
+</div>
+<div class="ov" id="ovinst">
+  <button class="sm" onclick="document.getElementById('ovinst').classList.remove('on')">← Voltar</button>
+  <h3>📲 Como instalar o Mex</h3>
+  <p><b>iPhone (Safari):</b> toque no botão Compartilhar (quadrado com seta para cima) → role e toque em <b>Adicionar à Tela de Início</b> → Adicionar. Abra sempre pelo ícone novo.</p>
+  <p><b>Android (Chrome):</b> toque nos três pontinhos ⋮ → <b>Instalar app</b> (ou "Adicionar à tela inicial") → Instalar.</p>
+  <p><b>Computador (Chrome/Edge):</b> clique no ícone de instalar na barra de endereço (ao lado da estrela) → Instalar.</p>
 </div>
 <div class="ov" id="ovimg" onclick="this.classList.remove('on')"><img id="bigimg" style="width:100%;border-radius:12px"></div>
 <div id="alarm"></div>
@@ -735,7 +748,7 @@ function newLayout() {
   ['nti', 'nva', 'nca', 'ncd', 'nda', 'ndt', 'nno'].forEach(id => { $(id).style.display = show.includes(id) ? 'block' : 'none'; });
 }
 $('nt').onchange = newLayout;
-$('bnew').onclick = () => {
+$('bplus').onclick = () => {
   const cats = ['Alimentação', 'Transporte', 'Combustível', 'Moradia', 'Saúde', 'Lazer', 'Trabalho', 'Educação', 'Contas', 'Outros', ...catList.map(c => c.name)];
   $('catdl').innerHTML = [...new Set(cats)].map(c => `<option value="${esc(c)}">`).join('');
   $('ncd').innerHTML = '<option value="">Sem cartão (à vista)</option>' + cardList.map(c => `<option value="${c.id}">💳 ${esc(c.name)}</option>`).join('');
@@ -766,6 +779,26 @@ $('nsave').onclick = () => {
   ['nti', 'nva', 'nca', 'nno'].forEach(id => { $(id).value = ''; });
   msg(navigator.onLine ? 'Salvo ✓' : 'Salvo no aparelho ✓ (sincroniza quando voltar a internet)');
 };
+
+// ---------- Instalar o app ----------
+let deferredInstall = null;
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function updInst() {
+  const show = !isStandalone();
+  $('binst').style.display = show ? 'inline-block' : 'none';
+  $('instbox').style.display = show ? 'block' : 'none';
+}
+async function installApp() {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    try { await deferredInstall.userChoice; } catch (e) {}
+    deferredInstall = null; updInst();
+  } else { $('ovinst').classList.add('on'); }
+}
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; updInst(); });
+window.addEventListener('appinstalled', () => { deferredInstall = null; updInst(); });
+$('binst').onclick = installApp; $('binst2').onclick = installApp;
+updInst();
 </script>
 </body>
 </html>
