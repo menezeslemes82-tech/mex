@@ -697,6 +697,10 @@ $('bset').onclick = async () => {
 window.closeSet = () => $('ovset').classList.remove('on');
 window.cp = id => { const el = $(id); el.select(); try { navigator.clipboard.writeText(el.value); } catch (e) { document.execCommand('copy'); } };
 const b64u = str => { const b = (str + '='.repeat((4 - str.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/'), raw = atob(b); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); };
+async function devId(str) {
+  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(h)].slice(0, 10).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 $('bpush').onclick = async () => {
   const st = $('pushst');
   try {
@@ -708,7 +712,7 @@ $('bpush').onclick = async () => {
     if (!kd.key) throw new Error(kd.error || 'servidor sem chave');
     let sub = await reg.pushManager.getSubscription();
     if (!sub) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64u(kd.key)});
-    await db.collection('users').doc(user.uid).collection('push').doc('main').set({sub:JSON.parse(JSON.stringify(sub)), updatedAt:Date.now()});
+    await db.collection('users').doc(user.uid).collection('push').doc(await devId(sub.endpoint)).set({sub:JSON.parse(JSON.stringify(sub)), updatedAt:Date.now()});
     st.textContent = 'Notificações ativadas neste aparelho. Toque em "Enviar teste".';
   } catch (e) { st.textContent = 'Erro: ' + e.message; }
 };
