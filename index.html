@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Mex">
 <meta name="theme-color" content="#0e0e11">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Mex</title>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -77,6 +79,22 @@ h2{margin:6px 0 10px;font-size:15px;color:var(--mut);font-weight:600;text-transf
 .bar .tr i{display:block;height:100%;background:var(--ac);border-radius:4px}
 .empty{color:var(--mut);text-align:center;padding:24px 0}
 #alarm{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 8px);background:var(--ac);color:#111;border-radius:16px;padding:14px 16px;font-weight:700;display:none;z-index:9;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#photo{width:44px;height:44px;border-radius:50%;background:var(--card2);font-size:18px;flex:none}
+.ov{position:fixed;inset:0;background:var(--bg);z-index:30;overflow-y:auto;padding:calc(env(safe-area-inset-top) + 14px) 16px 30px;display:none}
+.ov.on{display:block}
+.ov h3{margin:20px 0 6px;font-size:16px}
+.ov p{color:var(--mut);font-size:14px;line-height:1.45;margin:4px 0 8px}
+.ov .url{width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:13px;margin-bottom:6px}
+.sm{padding:8px 12px;border-radius:10px;background:var(--card2);font-size:14px;margin:4px 6px 4px 0;display:inline-block;color:var(--tx);text-decoration:none}
+.sm.pri{background:var(--ac);color:#111;font-weight:700}
+.thumb{width:44px;height:44px;border-radius:8px;object-fit:cover;flex:none}
+.card2{background:var(--card);border-radius:14px;padding:12px 14px;margin-bottom:8px}
+.card2 .h{display:flex;justify-content:space-between;align-items:center;font-weight:600;margin-bottom:8px}
+.card2 .s{font-size:13px;color:var(--mut);margin-top:6px}
+.card2 .x{color:var(--mut);font-size:18px;padding:4px}
+.flux div{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:15px}
+.flux div:last-child{border:0;font-weight:700}
+.tools{display:flex;gap:6px;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -93,8 +111,10 @@ h2{margin:6px 0 10px;font-size:15px;color:var(--mut);font-weight:600;text-transf
 
 <div id="app">
   <header>
-    <b>Mex</b>
+    <div><b>Mex</b> <span id="net" style="display:none;font-size:12px;color:var(--ac);margin-left:6px">📴 offline</span></div>
     <div class="r">
+      <button class="ic" id="bnew" title="Lançar manualmente">＋</button>
+      <button class="ic" id="bset" title="Ajustes">⚙</button>
       <button class="ic" id="bvoz" title="Resposta por voz">🔊</button>
       <button class="ic" id="bout" title="Sair">⎋</button>
     </div>
@@ -105,6 +125,8 @@ h2{margin:6px 0 10px;font-size:15px;color:var(--mut);font-weight:600;text-transf
       <div id="dock">
         <div id="status"></div>
         <div id="row">
+          <button id="photo" title="Foto de comprovante ou documento">📷</button>
+          <input type="file" id="file" accept="image/*" style="display:none">
           <input id="txt" placeholder="Ou digite aqui..." autocomplete="off">
           <button id="send">➤</button>
           <button id="mic">🎙</button>
@@ -122,8 +144,42 @@ h2{margin:6px 0 10px;font-size:15px;color:var(--mut);font-weight:600;text-transf
     <button data-t="notas"><span>📝</span>Notas</button>
   </nav>
 </div>
+<div class="ov" id="ovset">
+  <button class="sm" onclick="closeSet()">← Voltar</button>
+  <h3>🔔 Notificações no iPhone</h3>
+  <p>Instale o Mex na Tela de Início (Compartilhar → Adicionar à Tela de Início), abra por lá e toque em ativar.</p>
+  <button class="sm pri" id="bpush">Ativar notificações</button><button class="sm" id="btest">Enviar teste</button>
+  <p id="pushst"></p>
+  <h3>📅 Agenda no calendário do iPhone / Google</h3>
+  <p>Assina seus compromissos e tarefas como um calendário que se atualiza sozinho. iPhone: Ajustes → Calendário → Contas → Adicionar conta → Outra → Adicionar calendário assinado (cole o endereço). Google Agenda: Outras agendas → Por URL.</p>
+  <input class="url" id="icsurl" readonly onclick="this.select()">
+  <button class="sm" onclick="cp('icsurl')">Copiar endereço</button><a class="sm" id="webcal" href="#">Assinar no iPhone</a>
+  <h3>⏱ Avisos com o app fechado</h3>
+  <p>Cadastre este endereço em cron-job.org para rodar <b>a cada 1 minuto</b>. Ele dispara os lembretes e o resumo diário das 7h30.</p>
+  <input class="url" id="cronurl" readonly onclick="this.select()">
+  <button class="sm" onclick="cp('cronurl')">Copiar endereço</button>
+  <p id="infoerr" style="color:var(--red)"></p>
+</div>
+<div class="ov" id="ovnew">
+  <button class="sm" onclick="closeNew()">← Voltar</button>
+  <h3>Lançar manualmente</h3>
+  <p>Funciona sem internet: fica salvo no aparelho e sincroniza quando a conexão voltar.</p>
+  <select id="nt" class="url"><option value="expense">Gasto</option><option value="income">Receita</option><option value="event">Compromisso (com lembrete)</option><option value="task">Tarefa</option><option value="note">Nota / recado</option></select>
+  <input class="url" id="nti" placeholder="Descrição ou título">
+  <input class="url" id="nva" type="number" inputmode="decimal" step="0.01" placeholder="Valor (R$)">
+  <input class="url" id="nca" list="catdl" placeholder="Categoria (ex: Combustível)">
+  <datalist id="catdl"></datalist>
+  <select class="url" id="ncd"></select>
+  <input class="url" id="nda" type="date">
+  <input class="url" id="ndt" type="datetime-local">
+  <textarea class="url" id="nno" rows="4" placeholder="Texto / observações"></textarea>
+  <button class="sm pri" id="nsave">Salvar</button> <span id="nmsg" style="font-size:14px;color:var(--mut)"></span>
+</div>
+<div class="ov" id="ovimg" onclick="this.classList.remove('on')"><img id="bigimg" style="width:100%;border-radius:12px"></div>
 <div id="alarm"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -141,6 +197,9 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth(), db = firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(e => console.warn('cache offline indisponível:', e.code));
+// gravações no Firestore não esperam a rede (offline elas ficam na fila e sincronizam depois)
+const fire = p => { Promise.resolve(p).catch(e => console.error('gravação falhou', e)); };
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad = n => String(n).padStart(2, '0');
@@ -148,7 +207,7 @@ const brl = n => Number(n || 0).toLocaleString('pt-BR', {style:'currency', curre
 const isoLocal = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const ymKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
 
-let user = null, events = [], txs = [], catList = [], notes = [], tasks = [], unsubs = [], history = [];
+let user = null, events = [], txs = [], catList = [], notes = [], tasks = [], cardList = [], curThumb = '', unsubs = [], history = [];
 let monthRef = new Date(); monthRef.setDate(1);
 let voiceOn = localStorage.getItem('mexVoice') !== '0';
 let busy = false;
@@ -175,6 +234,8 @@ auth.onAuthStateChanged(u => {
   unsubs.push(base.collection('categories').onSnapshot(s => { catList = s.docs.map(d => ({id:d.id, ...d.data()})); renderFin(); }));
   unsubs.push(base.collection('notes').onSnapshot(s => { notes = s.docs.map(d => ({id:d.id, ...d.data()})); renderNotes(); }));
   unsubs.push(base.collection('tasks').onSnapshot(s => { tasks = s.docs.map(d => ({id:d.id, ...d.data()})); renderAgenda(); }));
+  unsubs.push(base.collection('cards').onSnapshot(s => { cardList = s.docs.map(d => ({id:d.id, ...d.data()})); renderFin(); }));
+  setTimeout(flushQueue, 2000);
   if (new URLSearchParams(location.search).get('gravar') === '1') setTimeout(() => { if (!rec) toggleMic(); }, 700);
 });
 
@@ -224,7 +285,8 @@ function toggleMic() {
   r.onend = () => {
     rec = null; $('mic').classList.remove('rec'); $('mic').textContent = '🎙'; setStatus('');
     if (err && err !== 'no-speech' && err !== 'aborted') {
-      setStatus(err === 'not-allowed' || err === 'service-not-allowed' ? 'Permita microfone e ditado nos ajustes, ou use o microfone do teclado.' : 'Erro no ditado: ' + err);
+      setStatus(err === 'not-allowed' || err === 'service-not-allowed' ? 'Permita microfone e ditado nos ajustes, ou use o microfone do teclado.'
+        : err === 'network' ? 'O ditado precisa de internet. Digite, use o microfone do teclado ou o botão ＋.' : 'Erro no ditado: ' + err);
       $('txt').focus(); return;
     }
     const t = $('txt').value.trim();
@@ -261,15 +323,37 @@ function buildContext() {
     categorias_criadas: catList.map(c => ({id:c.id, nome:c.name, tipo:c.kind, limite_mensal:c.limit || null,
       gasto_no_mes: c.kind === 'expense' ? ((meses[ymKey(now)].despesas_por_categoria || {})[c.name] || 0) : null})),
     notas: [...notes].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 30).map(n => ({id:n.id, titulo:n.title, texto:n.text})),
-    tarefas_pendentes: tasks.filter(t => !t.done).slice(0, 40).map(t => ({id:t.id, titulo:t.title, prazo:t.due || null, prioridade:t.priority}))
+    tarefas_pendentes: tasks.filter(t => !t.done).slice(0, 40).map(t => ({id:t.id, titulo:t.title, prazo:t.due || null, prioridade:t.priority})),
+    cartoes: cardList.map(c => { const st = cardStatus(c); return {id:c.id, nome:c.name, limite:c.limit || 0, limite_usado:+st.used.toFixed(2),
+      fatura_aberta:+st.openSum.toFixed(2), proximo_fechamento:st.nextClose, fatura_fechada_a_pagar:+st.closedSum.toFixed(2), vencimento_fatura_fechada:st.closedDue}; })
   };
 }
 
 // ---------- Chamada ao Mex ----------
-async function ask(input) {
+function loadQ() { try { return JSON.parse(localStorage.getItem('mexQueue') || '[]'); } catch (e) { return []; } }
+function saveQ(q) { try { localStorage.setItem('mexQueue', JSON.stringify(q)); return true; } catch (e) { return false; } }
+function queueAdd(input, thumb, showBubble) {
+  if (showBubble) addMsg('u', input.image ? '📷 Foto' + (input.text ? ': ' + input.text : '') : input.text);
+  const q = loadQ(); q.push({input, thumb:thumb || ''});
+  if (saveQ(q)) addMsg('s', '📴 Sem internet: guardei o pedido e envio quando a conexão voltar. Para lançar agora sem internet, use o botão ＋.');
+  else addMsg('s', 'Sem internet e não deu para guardar (foto grande?). Use o botão ＋ para lançar manualmente.');
+}
+let flushing = false;
+async function flushQueue() {
+  if (flushing || !navigator.onLine || !user) return;
+  const q = loadQ(); if (!q.length) return;
+  flushing = true; saveQ([]);
+  addMsg('s', '🌐 Internet voltou: enviando ' + q.length + ' pedido(s) guardado(s)...');
+  for (const it of q) { while (busy) await new Promise(r => setTimeout(r, 300)); await ask(it.input, it.thumb, true); }
+  flushing = false;
+}
+async function ask(input, thumb, fromQueue) {
+  if (!navigator.onLine && !fromQueue) { queueAdd(input, thumb, true); return; }
+  curThumb = thumb || '';
   busy = true; $('mic').classList.add('busy');
-  setStatus(input.audio ? 'Entendendo...' : 'Pensando...');
-  if (input.text) addMsg('u', input.text);
+  setStatus(input.audio ? 'Entendendo...' : input.image ? 'Lendo a foto...' : 'Pensando...');
+  if (input.image) addMsg('u', '📷 Foto enviada' + (input.text ? ': ' + input.text : ''));
+  else if (input.text) addMsg('u', input.text);
   try {
     const token = await user.getIdToken();
     const r = await fetch('/api/mex', {
@@ -279,67 +363,98 @@ async function ask(input) {
     });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'Erro ' + r.status);
-    const said = input.text || d.transcript || d.text || '';
+    const said = input.text || d.transcript || d.text || (input.image ? '(enviou uma foto)' : '');
     if (input.audio) addMsg('u', said || '(áudio)');
-    await applyActions(d.actions);
+    await applyActions(d.actions, curThumb);
     addMsg('a', d.reply);
     history.push({role:'user', content:said}, {role:'assistant', content:d.reply});
     history = history.slice(-8);
     speak(d.reply);
     setStatus('');
   } catch (e) {
-    addMsg('s', 'Erro: ' + e.message); setStatus('');
+    if (e instanceof TypeError && /fetch|network|load/i.test(String(e.message))) queueAdd(input, thumb, false);
+    else addMsg('s', 'Erro: ' + e.message);
+    setStatus('');
   }
   busy = false; $('mic').classList.remove('busy');
 }
 
-async function applyActions(list) {
+async function applyActions(list, thumb) {
   const base = db.collection('users').doc(user.uid);
   for (const a of (list || [])) {
     try {
       if (a.type === 'add_event' && a.title && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(a.when || '')) {
-        await base.collection('events').add({title:String(a.title), when:a.when, notes:String(a.notes || ''), done:false, notified:new Date(a.when) <= new Date(), createdAt:Date.now()});
+        fire(base.collection('events').add({title:String(a.title), when:a.when, notes:String(a.notes || ''), done:false, notified:new Date(a.when) <= new Date(), createdAt:Date.now()}));
       } else if (a.type === 'complete_event' && a.id) {
-        await base.collection('events').doc(a.id).update({done:true});
+        fire(base.collection('events').doc(a.id).update({done:true}));
       } else if (a.type === 'delete_event' && a.id) {
-        await base.collection('events').doc(a.id).delete();
+        fire(base.collection('events').doc(a.id).delete());
       } else if (a.type === 'add_transaction' && Number(a.amount) > 0 && (a.kind === 'expense' || a.kind === 'income')) {
         const date = /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : isoLocal(new Date()).slice(0, 10);
-        await base.collection('transactions').add({kind:a.kind, amount:+Number(a.amount).toFixed(2), category:String(a.category || 'Outros'), description:String(a.description || ''), date, createdAt:Date.now()});
+        const tx = {kind:a.kind, amount:+Number(a.amount).toFixed(2), category:String(a.category || 'Outros'), description:String(a.description || ''), date, createdAt:Date.now()};
+        if (a.kind === 'expense' && a.card) {
+          const cd = cardList.find(c => c.name.toLowerCase() === String(a.card).trim().toLowerCase());
+          if (cd) { tx.cardId = cd.id; tx.cardName = cd.name; }
+        }
+        if (a.attach_photo && thumb) tx.receipt = thumb;
+        fire(base.collection('transactions').add(tx));
       } else if (a.type === 'delete_transaction' && a.id) {
-        await base.collection('transactions').doc(a.id).delete();
+        fire(base.collection('transactions').doc(a.id).delete());
       } else if (a.type === 'update_transaction' && a.id) {
         const u = {};
         if (a.category) u.category = String(a.category);
         if (a.description) u.description = String(a.description);
         if (Number(a.amount) > 0) u.amount = +Number(a.amount).toFixed(2);
         if (/^\d{4}-\d{2}-\d{2}$/.test(a.date || '')) u.date = a.date;
-        if (Object.keys(u).length) await base.collection('transactions').doc(a.id).update(u);
+        if (Object.keys(u).length) fire(base.collection('transactions').doc(a.id).update(u));
       } else if (a.type === 'add_category' && a.name) {
         const name = String(a.name).trim(), kind = a.kind === 'income' ? 'income' : 'expense';
         if (!catList.some(c => c.kind === kind && c.name.toLowerCase() === name.toLowerCase())) {
           const d = {name, kind, createdAt:Date.now()};
           if (Number(a.limit) > 0) d.limit = +Number(a.limit).toFixed(2);
-          await base.collection('categories').add(d);
+          fire(base.collection('categories').add(d));
         } else if (Number(a.limit) > 0) {
           const c = catList.find(c => c.kind === kind && c.name.toLowerCase() === name.toLowerCase());
-          await base.collection('categories').doc(c.id).update({limit:+Number(a.limit).toFixed(2)});
+          fire(base.collection('categories').doc(c.id).update({limit:+Number(a.limit).toFixed(2)}));
         }
       } else if (a.type === 'set_category_limit' && a.id) {
-        await base.collection('categories').doc(a.id).update({limit: Number(a.limit) > 0 ? +Number(a.limit).toFixed(2) : firebase.firestore.FieldValue.delete()});
+        fire(base.collection('categories').doc(a.id).update({limit: Number(a.limit) > 0 ? +Number(a.limit).toFixed(2) : firebase.firestore.FieldValue.delete()}));
       } else if (a.type === 'delete_category' && a.id) {
-        await base.collection('categories').doc(a.id).delete();
+        fire(base.collection('categories').doc(a.id).delete());
       } else if (a.type === 'add_note' && (a.text || a.title)) {
-        await base.collection('notes').add({title:String(a.title || ''), text:String(a.text || ''), createdAt:Date.now()});
+        const nt = {title:String(a.title || ''), text:String(a.text || ''), createdAt:Date.now()};
+        if (a.attach_photo && thumb) nt.image = thumb;
+        fire(base.collection('notes').add(nt));
       } else if (a.type === 'delete_note' && a.id) {
-        await base.collection('notes').doc(a.id).delete();
+        fire(base.collection('notes').doc(a.id).delete());
       } else if (a.type === 'add_task' && a.title) {
         const pr = ['alta', 'media', 'baixa'].includes(a.priority) ? a.priority : 'media';
-        await base.collection('tasks').add({title:String(a.title), due:String(a.due || ''), priority:pr, done:false, createdAt:Date.now()});
+        fire(base.collection('tasks').add({title:String(a.title), due:String(a.due || ''), priority:pr, done:false, createdAt:Date.now()}));
       } else if (a.type === 'complete_task' && a.id) {
-        await base.collection('tasks').doc(a.id).update({done:true});
+        fire(base.collection('tasks').doc(a.id).update({done:true}));
       } else if (a.type === 'delete_task' && a.id) {
-        await base.collection('tasks').doc(a.id).delete();
+        fire(base.collection('tasks').doc(a.id).delete());
+      } else if (a.type === 'add_card' && a.name) {
+        const cd = Math.min(31, Math.max(1, parseInt(a.closing_day) || 1)), dd = Math.min(31, Math.max(1, parseInt(a.due_day) || 10));
+        fire(base.collection('cards').add({name:String(a.name).trim(), limit:Number(a.limit) > 0 ? +Number(a.limit).toFixed(2) : 0, closingDay:cd, dueDay:dd, paidUntil:'', createdAt:Date.now()}));
+      } else if (a.type === 'update_card' && a.id) {
+        const u = {};
+        if (a.name) u.name = String(a.name);
+        if (a.limit !== undefined && Number(a.limit) >= 0) u.limit = +Number(a.limit).toFixed(2);
+        if (parseInt(a.closing_day) > 0) u.closingDay = Math.min(31, parseInt(a.closing_day));
+        if (parseInt(a.due_day) > 0) u.dueDay = Math.min(31, parseInt(a.due_day));
+        if (Object.keys(u).length) fire(base.collection('cards').doc(a.id).update(u));
+      } else if (a.type === 'delete_card' && a.id) {
+        fire(base.collection('cards').doc(a.id).delete());
+      } else if (a.type === 'pay_invoice' && a.id) {
+        const c = cardList.find(x => x.id === a.id);
+        if (c) fire(base.collection('cards').doc(a.id).update({paidUntil:lastClosingStr(c)}));
+      } else if (a.type === 'export') {
+        const k = /^\d{4}-\d{2}$/.test(a.month || '') ? a.month : ymKey(new Date());
+        const fmt = a.format === 'xlsx' ? 'xlsx' : 'pdf';
+        const el = addMsg('s', '📄 Toque aqui para baixar o relatório (' + fmt.toUpperCase() + ' ' + k + ')');
+        el.style.cursor = 'pointer'; el.style.color = 'var(--ac)'; el.style.textDecoration = 'underline';
+        el.onclick = () => fmt === 'xlsx' ? exportXlsx(k) : exportPdf(k);
       }
     } catch (e) { console.error('ação falhou', a, e); }
   }
@@ -403,14 +518,15 @@ function renderFin() {
   <div class="sum"><div><small>Receitas</small><b style="color:var(--grn)">${brl(s.receitas)}</b></div>
   <div><small>Despesas</small><b style="color:var(--red)">${brl(s.despesas)}</b></div>
   <div class="full"><small>Saldo do mês</small><b>${brl(s.saldo)}</b></div></div>`;
+  h += toolsHtml(k) + fluxHtml(monthRef) + cardsHtml();
   const barHtml = (c, v) => {
     const cc = catList.find(x => x.kind === 'expense' && x.name.toLowerCase() === c.toLowerCase());
     const lim = cc && cc.limit, over = lim && v > lim;
     return `<div class="bar"><div class="l"><span>${esc(c)}</span><span style="${over ? 'color:var(--red)' : ''}">${brl(v)}${lim ? ' / ' + brl(lim) : ''}</span></div><div class="tr"><i style="width:${lim ? Math.min(100, v / lim * 100) : Math.max(4, v / max * 100)}%;${over ? 'background:var(--red)' : ''}"></i></div></div>`;
   };
   if (cats.length) h += '<h2>Despesas por categoria</h2>' + cats.map(([c, v]) => barHtml(c, v)).join('');
-  h += '<h2>Lançamentos</h2>' + (list.length ? list.map(t => `<div class="it"><div class="b"><div class="t">${esc(t.description || t.category)}</div>
-    <div class="s">${esc(t.category)} · ${t.date.split('-').reverse().slice(0, 2).join('/')}</div></div>
+  h += '<h2>Lançamentos</h2>' + (list.length ? list.map(t => `<div class="it">${t.receipt ? `<img class="thumb" src="${t.receipt}" onclick="viewImg(this.src)">` : ''}<div class="b"><div class="t">${esc(t.description || t.category)}</div>
+    <div class="s">${esc(t.category)}${t.cardName ? ' · 💳 ' + esc(t.cardName) : ''} · ${t.date.split('-').reverse().slice(0, 2).join('/')}</div></div>
     <div class="val ${t.kind === 'income' ? 'in' : 'out'}">${t.kind === 'income' ? '+' : '-'}${brl(t.amount)}</div>
     <button class="x" onclick="delTx('${t.id}')">✕</button></div>`).join('') : '<div class="empty">Nenhum lançamento neste mês.</div>');
   h += '<h2>Minhas categorias</h2>' + (catList.length ? catList.map(c => `<div class="it"><div class="b"><div class="t">${esc(c.name)}</div>
@@ -440,7 +556,7 @@ window.delTask = id => { if (confirm('Apagar tarefa?')) db.collection('users').d
 // ---------- Notas / recados ----------
 function renderNotes() {
   const list = [...notes].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  $('t-notas').innerHTML = '<h2>Notas e recados</h2>' + (list.length ? list.map(n => `<div class="it"><div class="b">
+  $('t-notas').innerHTML = '<h2>Notas e recados</h2>' + (list.length ? list.map(n => `<div class="it">${n.image ? `<img class="thumb" src="${n.image}" onclick="viewImg(this.src)">` : ''}<div class="b">
     ${n.title ? `<div class="t"><b>${esc(n.title)}</b></div>` : ''}<div class="t" style="white-space:pre-wrap">${esc(n.text)}</div>
     <div class="s">${new Date(n.createdAt).toLocaleDateString('pt-BR')}</div></div>
     <button class="x" onclick="delNote('${n.id}')">✕</button></div>`).join('') : '<div class="empty">Diga ao Mex: "anota um recado: ligar para o contador".</div>');
@@ -448,6 +564,204 @@ function renderNotes() {
 window.delNote = id => { if (confirm('Apagar nota?')) db.collection('users').doc(user.uid).collection('notes').doc(id).delete(); };
 window.chMonth = n => { monthRef = new Date(monthRef.getFullYear(), monthRef.getMonth() + n, 1); renderFin(); };
 window.delTx = id => { if (confirm('Apagar lançamento?')) db.collection('users').doc(user.uid).collection('transactions').doc(id).delete(); };
+
+// ---------- Cartões, fluxo de caixa ----------
+const fD = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const fmtDM = str => String(str || '').split('-').reverse().slice(0, 2).join('/');
+const cdate = (y, m, day) => new Date(y, m, Math.min(day, new Date(y, m + 1, 0).getDate()));
+function lastClosingDate(c, now) {
+  now = now || new Date();
+  let d = cdate(now.getFullYear(), now.getMonth(), c.closingDay);
+  if (fD(d) > fD(now)) d = cdate(now.getFullYear(), now.getMonth() - 1, c.closingDay);
+  return d;
+}
+const lastClosingStr = c => fD(lastClosingDate(c));
+function cardCycle(c, y, m) {
+  const end = cdate(y, m, c.closingDay), prev = cdate(y, m - 1, c.closingDay);
+  const due = c.dueDay > c.closingDay ? cdate(y, m, c.dueDay) : cdate(y, m + 1, c.dueDay);
+  const s0 = fD(prev), e0 = fD(end);
+  const sum = txs.filter(t => t.cardId === c.id && t.kind === 'expense' && t.date > s0 && t.date <= e0).reduce((a, t) => a + t.amount, 0);
+  return {start:s0, end:e0, due:fD(due), sum:+sum.toFixed(2)};
+}
+function cardStatus(c) {
+  const now = new Date(), lc = lastClosingDate(c, now), lcs = fD(lc);
+  const closed = cardCycle(c, lc.getFullYear(), lc.getMonth());
+  const paid = !!c.paidUntil && c.paidUntil >= lcs;
+  const mine = txs.filter(t => t.cardId === c.id && t.kind === 'expense');
+  const openSum = mine.filter(t => t.date > lcs).reduce((a, t) => a + t.amount, 0);
+  const used = mine.filter(t => t.date > (c.paidUntil || '')).reduce((a, t) => a + t.amount, 0);
+  return {closedSum: paid ? 0 : closed.sum, closedDue:closed.due, openSum, used,
+    nextClose: fD(cdate(lc.getFullYear(), lc.getMonth() + 1, c.closingDay))};
+}
+function cardsHtml() {
+  if (!cardList.length) return '<h2>Cartões e faturas</h2><div class="empty">Diga ao Mex: "cadastra o cartão Nubank, limite 5000, fecha dia 3, vence dia 10".</div>';
+  return '<h2>Cartões e faturas</h2>' + cardList.map(c => {
+    const st = cardStatus(c), pct = c.limit ? Math.min(100, st.used / c.limit * 100) : 0;
+    return `<div class="card2"><div class="h"><span>💳 ${esc(c.name)}</span><button class="x" onclick="delCard('${c.id}')">✕</button></div>
+      <div class="bar"><div class="l"><span>Limite usado</span><span>${brl(st.used)}${c.limit ? ' / ' + brl(c.limit) : ''}</span></div>
+      <div class="tr"><i style="width:${c.limit ? Math.max(3, pct) : 3}%;${c.limit && st.used > c.limit ? 'background:var(--red)' : ''}"></i></div></div>
+      <div class="s">Fatura aberta: <b>${brl(st.openSum)}</b> · fecha ${fmtDM(st.nextClose)}</div>
+      ${st.closedSum > 0 ? `<div class="s">Fatura fechada: <b>${brl(st.closedSum)}</b> · vence ${fmtDM(st.closedDue)} <button class="sm" onclick="payInv('${c.id}')">Marcar paga</button></div>` : ''}
+      ${c.limit ? `<div class="s">Disponível: ${brl(Math.max(0, c.limit - st.used))}</div>` : ''}</div>`;
+  }).join('');
+}
+function fluxHtml(ref) {
+  const k = ymKey(ref), y = ref.getFullYear(), m = ref.getMonth();
+  const list = txs.filter(t => (t.date || '').startsWith(k));
+  const rec = list.filter(t => t.kind === 'income').reduce((a, t) => a + t.amount, 0);
+  const vista = list.filter(t => t.kind === 'expense' && !t.cardId).reduce((a, t) => a + t.amount, 0);
+  const fat = cardList.map(c => ({c, inv:cardCycle(c, y, c.dueDay > c.closingDay ? m : m - 1)})).filter(x => x.inv.sum > 0);
+  const totFat = fat.reduce((a, x) => a + x.inv.sum, 0), saldo = rec - vista - totFat;
+  return '<h2>Fluxo de caixa do mês</h2><div class="card2 flux"><div><span>Receitas</span><span style="color:var(--grn)">' + brl(rec) + '</span></div>'
+    + '<div><span>Despesas à vista</span><span>-' + brl(vista) + '</span></div>'
+    + fat.map(x => `<div><span>Fatura ${esc(x.c.name)} (vence ${fmtDM(x.inv.due)})</span><span>-${brl(x.inv.sum)}</span></div>`).join('')
+    + '<div><span>Saldo projetado</span><span style="color:' + (saldo < 0 ? 'var(--red)' : 'var(--grn)') + '">' + brl(saldo) + '</span></div></div>';
+}
+window.delCard = id => { if (confirm('Apagar cartão? Os lançamentos continuam.')) db.collection('users').doc(user.uid).collection('cards').doc(id).delete(); };
+window.payInv = id => { const c = cardList.find(x => x.id === id); if (c) db.collection('users').doc(user.uid).collection('cards').doc(id).update({paidUntil:lastClosingStr(c)}); };
+
+// ---------- Exportar (PDF e Excel) ----------
+function toolsHtml(k) {
+  return `<div class="tools"><button class="sm" onclick="exportPdf('${k}')">📄 PDF do mês</button><button class="sm" onclick="exportXlsx('${k}')">📊 Excel do mês</button></div>`;
+}
+const monthRows = k => txs.filter(t => (t.date || '').startsWith(k)).sort((a, b) => a.date.localeCompare(b.date));
+window.exportXlsx = k => {
+  if (!window.XLSX) { alert('A biblioteca de Excel não carregou. Verifique a internet.'); return; }
+  const rows = [['Data', 'Tipo', 'Categoria', 'Descrição', 'Cartão', 'Valor (R$)']];
+  const list = monthRows(k);
+  list.forEach(t => rows.push([t.date.split('-').reverse().join('/'), t.kind === 'income' ? 'Receita' : 'Despesa', t.category, t.description || '', t.cardName || '', t.kind === 'income' ? t.amount : -t.amount]));
+  const s = summarize(list);
+  rows.push([], ['', '', '', 'Receitas', '', s.receitas], ['', '', '', 'Despesas', '', -s.despesas], ['', '', '', 'Saldo', '', s.saldo]);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:12}, {wch:10}, {wch:18}, {wch:36}, {wch:14}, {wch:14}];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Lançamentos');
+  XLSX.writeFile(wb, `Mex-${k}.xlsx`);
+};
+window.exportPdf = k => {
+  if (!window.jspdf) { alert('A biblioteca de PDF não carregou. Verifique a internet.'); return; }
+  const doc = new window.jspdf.jsPDF(), list = monthRows(k), s = summarize(list);
+  const [y, m] = k.split('-'), label = new Date(+y, +m - 1, 1).toLocaleDateString('pt-BR', {month:'long', year:'numeric'});
+  const money = n => brl(n).replace(/ /g, ' ');
+  doc.setFontSize(16); doc.text('Relatório financeiro - ' + label, 14, 18);
+  doc.setFontSize(11);
+  doc.text('Receitas: ' + money(s.receitas), 14, 28); doc.text('Despesas: ' + money(s.despesas), 78, 28); doc.text('Saldo: ' + money(s.saldo), 142, 28);
+  let yy = 40; doc.setFontSize(10); doc.setFont(undefined, 'bold');
+  doc.text('Data', 14, yy); doc.text('Categoria', 34, yy); doc.text('Descrição', 74, yy); doc.text('Valor', 196, yy, {align:'right'});
+  doc.setFont(undefined, 'normal'); yy += 6;
+  list.forEach(t => {
+    if (yy > 274) { doc.addPage(); yy = 20; }
+    doc.text(fmtDM(t.date) + '/' + t.date.slice(2, 4), 14, yy);
+    doc.text(String(t.category).slice(0, 20), 34, yy);
+    doc.text(String((t.description || '') + (t.cardName ? ' (' + t.cardName + ')' : '')).slice(0, 44), 74, yy);
+    doc.text((t.kind === 'income' ? '+' : '-') + money(t.amount), 196, yy, {align:'right'});
+    yy += 6;
+  });
+  if (!list.length) doc.text('Nenhum lançamento neste mês.', 14, yy);
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(9); doc.text('AIMEX SOFTWARE', 105, 290, {align:'center'}); doc.text(i + '/' + n, 196, 290, {align:'right'}); }
+  doc.save(`Mex-${k}.pdf`);
+};
+
+// ---------- Foto (comprovantes e documentos) ----------
+$('photo').onclick = () => { if (!busy) $('file').click(); };
+$('file').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f || busy) return;
+  try {
+    const img = await new Promise((res, rej) => { const u = URL.createObjectURL(f), i = new Image(); i.onload = () => { URL.revokeObjectURL(u); res(i); }; i.onerror = rej; i.src = u; });
+    const shrink = (max, q) => { const sc = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return c.toDataURL('image/jpeg', q); };
+    const big = shrink(1400, 0.75), thumb = shrink(700, 0.55), note = $('txt').value.trim(); $('txt').value = '';
+    ask({image:big.split(',')[1], text:note}, thumb);
+  } catch (err) { setStatus('Não consegui ler a foto.'); }
+};
+window.viewImg = src => { $('bigimg').src = src; $('ovimg').classList.add('on'); };
+
+// ---------- Ajustes: notificações, agenda, cron ----------
+async function api(path, body) {
+  const token = await user.getIdToken();
+  const r = await fetch(path, {method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + token}, body:JSON.stringify(body || {})});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Erro ' + r.status);
+  return d;
+}
+function pushStatus() {
+  $('pushst').textContent = !('Notification' in window) ? 'Sem suporte aqui. No iPhone, instale na Tela de Início e abra por lá.'
+    : 'Permissão: ' + ({granted:'ativada', denied:'bloqueada', default:'ainda não pedida'}[Notification.permission]);
+}
+$('bset').onclick = async () => {
+  $('ovset').classList.add('on'); $('infoerr').textContent = ''; pushStatus();
+  try { const d = await api('/api/push', {action:'info'}); $('icsurl').value = d.icsUrl; $('cronurl').value = d.cronUrl; $('webcal').href = d.webcalUrl; }
+  catch (e) { $('infoerr').textContent = 'Servidor: ' + e.message; }
+};
+window.closeSet = () => $('ovset').classList.remove('on');
+window.cp = id => { const el = $(id); el.select(); try { navigator.clipboard.writeText(el.value); } catch (e) { document.execCommand('copy'); } };
+const b64u = str => { const b = (str + '='.repeat((4 - str.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/'), raw = atob(b); return Uint8Array.from([...raw].map(c => c.charCodeAt(0))); };
+$('bpush').onclick = async () => {
+  const st = $('pushst');
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { st.textContent = 'Sem suporte aqui. No iPhone: Compartilhar → Adicionar à Tela de Início, e abra o Mex por lá.'; return; }
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { st.textContent = 'Permissão negada. Libere em Ajustes do iPhone → Notificações → Mex.'; return; }
+    const reg = await navigator.serviceWorker.ready;
+    const kd = await (await fetch('/api/push?action=key')).json();
+    if (!kd.key) throw new Error(kd.error || 'servidor sem chave');
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64u(kd.key)});
+    await db.collection('users').doc(user.uid).collection('push').doc('main').set({sub:JSON.parse(JSON.stringify(sub)), updatedAt:Date.now()});
+    st.textContent = 'Notificações ativadas neste aparelho. Toque em "Enviar teste".';
+  } catch (e) { st.textContent = 'Erro: ' + e.message; }
+};
+$('btest').onclick = async () => {
+  try { const d = await api('/api/push', {action:'test'}); $('pushst').textContent = d.sent ? 'Teste enviado.' : 'Nenhum aparelho inscrito. Toque em "Ativar notificações".'; }
+  catch (e) { $('pushst').textContent = 'Erro: ' + e.message; }
+};
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+// ---------- Offline: estado de rede e lançamento manual ----------
+function updateNet() { $('net').style.display = navigator.onLine ? 'none' : 'inline'; }
+window.addEventListener('online', () => { updateNet(); setTimeout(flushQueue, 800); });
+window.addEventListener('offline', updateNet);
+updateNet();
+setInterval(flushQueue, 30000);
+
+const NEW_SHOW = {expense:['nti','nva','nca','ncd','nda'], income:['nti','nva','nca','nda'], event:['nti','ndt','nno'], task:['nti','nda'], note:['nti','nno']};
+function newLayout() {
+  const show = NEW_SHOW[$('nt').value];
+  ['nti', 'nva', 'nca', 'ncd', 'nda', 'ndt', 'nno'].forEach(id => { $(id).style.display = show.includes(id) ? 'block' : 'none'; });
+}
+$('nt').onchange = newLayout;
+$('bnew').onclick = () => {
+  const cats = ['Alimentação', 'Transporte', 'Combustível', 'Moradia', 'Saúde', 'Lazer', 'Trabalho', 'Educação', 'Contas', 'Outros', ...catList.map(c => c.name)];
+  $('catdl').innerHTML = [...new Set(cats)].map(c => `<option value="${esc(c)}">`).join('');
+  $('ncd').innerHTML = '<option value="">Sem cartão (à vista)</option>' + cardList.map(c => `<option value="${c.id}">💳 ${esc(c.name)}</option>`).join('');
+  if (!$('nda').value) $('nda').value = fD(new Date());
+  $('nmsg').textContent = ''; newLayout(); $('ovnew').classList.add('on');
+};
+window.closeNew = () => $('ovnew').classList.remove('on');
+$('nsave').onclick = () => {
+  const t = $('nt').value, ti = $('nti').value.trim(), base = db.collection('users').doc(user.uid), msg = m => { $('nmsg').textContent = m; };
+  const val = parseFloat(String($('nva').value).replace(',', '.'));
+  if (t === 'expense' || t === 'income') {
+    if (!(val > 0)) return msg('Informe o valor.');
+    const tx = {kind:t, amount:+val.toFixed(2), category:$('nca').value.trim() || 'Outros', description:ti, date:$('nda').value || fD(new Date()), createdAt:Date.now()};
+    const c = t === 'expense' && $('ncd').value ? cardList.find(x => x.id === $('ncd').value) : null;
+    if (c) { tx.cardId = c.id; tx.cardName = c.name; }
+    fire(base.collection('transactions').add(tx));
+  } else if (t === 'event') {
+    const w = $('ndt').value;
+    if (!ti || !w) return msg('Informe o título e a data/hora.');
+    fire(base.collection('events').add({title:ti, when:w, notes:$('nno').value.trim(), done:false, notified:new Date(w) <= new Date(), createdAt:Date.now()}));
+  } else if (t === 'task') {
+    if (!ti) return msg('Informe a tarefa.');
+    fire(base.collection('tasks').add({title:ti, due:$('nda').value || '', priority:'media', done:false, createdAt:Date.now()}));
+  } else {
+    if (!ti && !$('nno').value.trim()) return msg('Escreva a nota.');
+    fire(base.collection('notes').add({title:ti, text:$('nno').value.trim(), createdAt:Date.now()}));
+  }
+  ['nti', 'nva', 'nca', 'nno'].forEach(id => { $(id).value = ''; });
+  msg(navigator.onLine ? 'Salvo ✓' : 'Salvo no aparelho ✓ (sincroniza quando voltar a internet)');
+};
 </script>
 </body>
 </html>
