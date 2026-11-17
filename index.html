@@ -113,11 +113,13 @@ h2{margin:6px 0 10px;font-size:15px;color:var(--mut);font-weight:600;text-transf
     </section>
     <section class="tab" id="t-agenda"></section>
     <section class="tab" id="t-fin"></section>
+    <section class="tab" id="t-notas"></section>
   </main>
   <nav>
     <button class="on" data-t="chat"><span>🎙</span>Mex</button>
     <button data-t="agenda"><span>📅</span>Agenda</button>
     <button data-t="fin"><span>💰</span>Financeiro</button>
+    <button data-t="notas"><span>📝</span>Notas</button>
   </nav>
 </div>
 <div id="alarm"></div>
@@ -146,7 +148,7 @@ const brl = n => Number(n || 0).toLocaleString('pt-BR', {style:'currency', curre
 const isoLocal = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const ymKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
 
-let user = null, events = [], txs = [], unsubs = [], history = [];
+let user = null, events = [], txs = [], catList = [], notes = [], tasks = [], unsubs = [], history = [];
 let monthRef = new Date(); monthRef.setDate(1);
 let voiceOn = localStorage.getItem('mexVoice') !== '0';
 let busy = false;
@@ -170,6 +172,9 @@ auth.onAuthStateChanged(u => {
   const base = db.collection('users').doc(u.uid);
   unsubs.push(base.collection('events').onSnapshot(s => { events = s.docs.map(d => ({id:d.id, ...d.data()})); renderAgenda(); }));
   unsubs.push(base.collection('transactions').onSnapshot(s => { txs = s.docs.map(d => ({id:d.id, ...d.data()})); renderFin(); }));
+  unsubs.push(base.collection('categories').onSnapshot(s => { catList = s.docs.map(d => ({id:d.id, ...d.data()})); renderFin(); }));
+  unsubs.push(base.collection('notes').onSnapshot(s => { notes = s.docs.map(d => ({id:d.id, ...d.data()})); renderNotes(); }));
+  unsubs.push(base.collection('tasks').onSnapshot(s => { tasks = s.docs.map(d => ({id:d.id, ...d.data()})); renderAgenda(); }));
   if (new URLSearchParams(location.search).get('gravar') === '1') setTimeout(() => { if (!rec) toggleMic(); }, 700);
 });
 
@@ -252,7 +257,11 @@ function buildContext() {
     agora_iso: isoLocal(now),
     compromissos_pendentes: pend,
     resumo_por_mes: meses,
-    ultimas_transacoes: recentes
+    ultimas_transacoes: recentes,
+    categorias_criadas: catList.map(c => ({id:c.id, nome:c.name, tipo:c.kind, limite_mensal:c.limit || null,
+      gasto_no_mes: c.kind === 'expense' ? ((meses[ymKey(now)].despesas_por_categoria || {})[c.name] || 0) : null})),
+    notas: [...notes].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 30).map(n => ({id:n.id, titulo:n.title, texto:n.text})),
+    tarefas_pendentes: tasks.filter(t => !t.done).slice(0, 40).map(t => ({id:t.id, titulo:t.title, prazo:t.due || null, prioridade:t.priority}))
   };
 }
 
@@ -299,6 +308,38 @@ async function applyActions(list) {
         await base.collection('transactions').add({kind:a.kind, amount:+Number(a.amount).toFixed(2), category:String(a.category || 'Outros'), description:String(a.description || ''), date, createdAt:Date.now()});
       } else if (a.type === 'delete_transaction' && a.id) {
         await base.collection('transactions').doc(a.id).delete();
+      } else if (a.type === 'update_transaction' && a.id) {
+        const u = {};
+        if (a.category) u.category = String(a.category);
+        if (a.description) u.description = String(a.description);
+        if (Number(a.amount) > 0) u.amount = +Number(a.amount).toFixed(2);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(a.date || '')) u.date = a.date;
+        if (Object.keys(u).length) await base.collection('transactions').doc(a.id).update(u);
+      } else if (a.type === 'add_category' && a.name) {
+        const name = String(a.name).trim(), kind = a.kind === 'income' ? 'income' : 'expense';
+        if (!catList.some(c => c.kind === kind && c.name.toLowerCase() === name.toLowerCase())) {
+          const d = {name, kind, createdAt:Date.now()};
+          if (Number(a.limit) > 0) d.limit = +Number(a.limit).toFixed(2);
+          await base.collection('categories').add(d);
+        } else if (Number(a.limit) > 0) {
+          const c = catList.find(c => c.kind === kind && c.name.toLowerCase() === name.toLowerCase());
+          await base.collection('categories').doc(c.id).update({limit:+Number(a.limit).toFixed(2)});
+        }
+      } else if (a.type === 'set_category_limit' && a.id) {
+        await base.collection('categories').doc(a.id).update({limit: Number(a.limit) > 0 ? +Number(a.limit).toFixed(2) : firebase.firestore.FieldValue.delete()});
+      } else if (a.type === 'delete_category' && a.id) {
+        await base.collection('categories').doc(a.id).delete();
+      } else if (a.type === 'add_note' && (a.text || a.title)) {
+        await base.collection('notes').add({title:String(a.title || ''), text:String(a.text || ''), createdAt:Date.now()});
+      } else if (a.type === 'delete_note' && a.id) {
+        await base.collection('notes').doc(a.id).delete();
+      } else if (a.type === 'add_task' && a.title) {
+        const pr = ['alta', 'media', 'baixa'].includes(a.priority) ? a.priority : 'media';
+        await base.collection('tasks').add({title:String(a.title), due:String(a.due || ''), priority:pr, done:false, createdAt:Date.now()});
+      } else if (a.type === 'complete_task' && a.id) {
+        await base.collection('tasks').doc(a.id).update({done:true});
+      } else if (a.type === 'delete_task' && a.id) {
+        await base.collection('tasks').doc(a.id).delete();
       }
     } catch (e) { console.error('ação falhou', a, e); }
   }
@@ -323,7 +364,7 @@ function renderAgenda() {
   const pend = events.filter(e => !e.done).sort((a, b) => a.when.localeCompare(b.when));
   const late = pend.filter(e => new Date(e.when) < now), next = pend.filter(e => new Date(e.when) >= now);
   const done = events.filter(e => e.done).sort((a, b) => b.when.localeCompare(a.when)).slice(0, 10);
-  let h = '';
+  let h = tasksHtml();
   if (late.length) h += '<h2>Atrasados</h2>' + late.map(e => evHtml(e, true)).join('');
   h += '<h2>Próximos</h2>' + (next.length ? next.map(e => evHtml(e)).join('') : '<div class="empty">Nada agendado. Fale com o Mex.</div>');
   if (done.length) h += '<h2>Concluídos</h2>' + done.map(e => evHtml(e)).join('');
@@ -362,14 +403,49 @@ function renderFin() {
   <div class="sum"><div><small>Receitas</small><b style="color:var(--grn)">${brl(s.receitas)}</b></div>
   <div><small>Despesas</small><b style="color:var(--red)">${brl(s.despesas)}</b></div>
   <div class="full"><small>Saldo do mês</small><b>${brl(s.saldo)}</b></div></div>`;
-  if (cats.length) h += '<h2>Despesas por categoria</h2>' + cats.map(([c, v]) =>
-    `<div class="bar"><div class="l"><span>${esc(c)}</span><span>${brl(v)}</span></div><div class="tr"><i style="width:${Math.max(4, v / max * 100)}%"></i></div></div>`).join('');
+  const barHtml = (c, v) => {
+    const cc = catList.find(x => x.kind === 'expense' && x.name.toLowerCase() === c.toLowerCase());
+    const lim = cc && cc.limit, over = lim && v > lim;
+    return `<div class="bar"><div class="l"><span>${esc(c)}</span><span style="${over ? 'color:var(--red)' : ''}">${brl(v)}${lim ? ' / ' + brl(lim) : ''}</span></div><div class="tr"><i style="width:${lim ? Math.min(100, v / lim * 100) : Math.max(4, v / max * 100)}%;${over ? 'background:var(--red)' : ''}"></i></div></div>`;
+  };
+  if (cats.length) h += '<h2>Despesas por categoria</h2>' + cats.map(([c, v]) => barHtml(c, v)).join('');
   h += '<h2>Lançamentos</h2>' + (list.length ? list.map(t => `<div class="it"><div class="b"><div class="t">${esc(t.description || t.category)}</div>
     <div class="s">${esc(t.category)} · ${t.date.split('-').reverse().slice(0, 2).join('/')}</div></div>
     <div class="val ${t.kind === 'income' ? 'in' : 'out'}">${t.kind === 'income' ? '+' : '-'}${brl(t.amount)}</div>
     <button class="x" onclick="delTx('${t.id}')">✕</button></div>`).join('') : '<div class="empty">Nenhum lançamento neste mês.</div>');
+  h += '<h2>Minhas categorias</h2>' + (catList.length ? catList.map(c => `<div class="it"><div class="b"><div class="t">${esc(c.name)}</div>
+    <div class="s">${c.kind === 'income' ? 'Receita' : 'Despesa'}${c.limit ? ' · limite ' + brl(c.limit) + '/mês' : ''}</div></div>
+    <button class="x" onclick="delCat('${c.id}')">✕</button></div>`).join('') : '<div class="empty">Peça ao Mex: "cria a categoria Pet com limite de 300".</div>');
   $('t-fin').innerHTML = h;
 }
+window.delCat = id => { if (confirm('Apagar categoria? Os lançamentos antigos continuam.')) db.collection('users').doc(user.uid).collection('categories').doc(id).delete(); };
+
+// ---------- Tarefas ----------
+function tasksHtml() {
+  const open = tasks.filter(t => !t.done).sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
+  const done = tasks.filter(t => t.done).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 5);
+  const row = t => {
+    const due = t.due ? (t.due.length > 10 ? fmtWhen(t.due) : t.due.split('-').reverse().join('/')) : 'sem prazo';
+    const pr = t.priority === 'alta' ? ' · 🔴 alta' : t.priority === 'baixa' ? ' · baixa' : '';
+    return `<div class="it ${t.done ? 'done' : ''}"><button class="ck" onclick="toggleTask('${t.id}',${!t.done})">${t.done ? '✓' : ''}</button>
+      <div class="b"><div class="t">${esc(t.title)}</div><div class="s">${esc(due)}${pr}</div></div>
+      <button class="x" onclick="delTask('${t.id}')">✕</button></div>`;
+  };
+  if (!open.length && !done.length) return '';
+  return '<h2>Tarefas</h2>' + open.map(row).join('') + done.map(row).join('');
+}
+window.toggleTask = (id, v) => db.collection('users').doc(user.uid).collection('tasks').doc(id).update({done:v});
+window.delTask = id => { if (confirm('Apagar tarefa?')) db.collection('users').doc(user.uid).collection('tasks').doc(id).delete(); };
+
+// ---------- Notas / recados ----------
+function renderNotes() {
+  const list = [...notes].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  $('t-notas').innerHTML = '<h2>Notas e recados</h2>' + (list.length ? list.map(n => `<div class="it"><div class="b">
+    ${n.title ? `<div class="t"><b>${esc(n.title)}</b></div>` : ''}<div class="t" style="white-space:pre-wrap">${esc(n.text)}</div>
+    <div class="s">${new Date(n.createdAt).toLocaleDateString('pt-BR')}</div></div>
+    <button class="x" onclick="delNote('${n.id}')">✕</button></div>`).join('') : '<div class="empty">Diga ao Mex: "anota um recado: ligar para o contador".</div>');
+}
+window.delNote = id => { if (confirm('Apagar nota?')) db.collection('users').doc(user.uid).collection('notes').doc(id).delete(); };
 window.chMonth = n => { monthRef = new Date(monthRef.getFullYear(), monthRef.getMonth() + n, 1); renderFin(); };
 window.delTx = id => { if (confirm('Apagar lançamento?')) db.collection('users').doc(user.uid).collection('transactions').doc(id).delete(); };
 </script>
